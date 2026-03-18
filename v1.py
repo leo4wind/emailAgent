@@ -113,7 +113,7 @@ def classify_email(state: AgentState) -> Command:
 
     # 路由决策
     if cls["urgency"] in ("high", "critical") or cls["intent"] == "complex":
-        next_node = "human_review"
+        next_node = "human_review_pause"
     elif cls["intent"] in ("question", "feature"):
         next_node = "fake_search"
     elif cls["intent"] == "bug":
@@ -178,25 +178,45 @@ def draft(state: AgentState) -> Command:
 
     return Command(
         update={"draft_response": response.content, "current_step": "drafted"},
-        goto="human_review" if needs_human else "send"
+        goto="human_review_pause" if needs_human else "send"
     )
 
 
-def human_review(state: AgentState) -> Command:
+def human_review_pause(state: AgentState) -> dict:
+    """只負責觸發中斷，不做決策"""
+    # 如果還沒有草稿，先給一個占位（可選）
+    if not state.get("draft_response"):
+        state["draft_response"] = "我們正在緊急處理您的重複扣款問題，請稍候..."
+
     payload = {
         "type": "need_human_review",
         "original_email": state["email_content"],
         "classification": state.get("classification"),
-        "draft": state.get("draft_response", "(草稿尚未生成)"),
-        "message": "请审核/修改回复草稿，确认后点继续，或直接拒绝并说明原因"
+        "draft": state.get("draft_response"),
+        "message": "請審核/修改回覆草稿，確認後點繼續，或直接拒絕並說明原因"
     }
 
-    decision = interrupt(payload)
+    interrupt(payload)
+    
+    # interrupt 會自動暫停，這裡不需要 return Command
+    return {"current_step": "waiting_human_review"}  # 可選：更新狀態
 
-    if decision.get("approved", False):
-        final_text = decision.get("final_text") or state.get("draft_response", "")
+
+def human_review_process(state: AgentState) -> Command:
+    """resume 後執行的節點，處理人工輸入"""
+    # 從輸入中取得人工決策（invoke 時傳入的資料）
+    # 注意：這裡假設 decision 會被傳到 state 或直接作為輸入
+    # 但更穩定的做法是讓 resume 時的 input 直接帶決策資料
+
+    approved = state.get("human_approved", False)  # 或從其他地方取
+    final_text = state.get("human_final_text") or state.get("draft_response", "")
+
+    if approved:
         return Command(
-            update={"draft_response": final_text, "current_step": "approved"},
+            update={
+                "draft_response": final_text,
+                "current_step": "approved"
+            },
             goto="send"
         )
     else:
@@ -225,7 +245,8 @@ workflow.add_node("classify", classify_email)
 workflow.add_node("fake_search", fake_search)
 workflow.add_node("fake_bug_track", fake_bug_track)
 workflow.add_node("draft", draft)
-workflow.add_node("human_review", human_review)
+workflow.add_node("human_review_pause", human_review_pause)
+workflow.add_node("human_review_process", human_review_process)
 workflow.add_node("send", send)
 
 workflow.add_edge(START, "classify")
@@ -260,13 +281,13 @@ def main():
         print(result["__interrupt__"])
 
         # 模拟人工通过并修改
-        human_input = {
-            "approved": True,
-            "final_text": "非常抱歉给您带来不好的体验！\n我们已立即为您处理重复扣款，款项将于24小时内退回原支付账户。\n感谢您的反馈与耐心。"
+        human_decision_input = {
+            "human_approved": True,
+            "human_final_text": "非常抱歉給您帶來不好的體驗！\n我們已立即為您處理重複扣款，款項將於24小時內退回原支付帳戶。\n感謝您的反饋與耐心。"
         }
 
         print("\n模拟人工审核通过，继续执行...\n")
-        final = app.invoke(human_input, thread)
+        final = app.invoke(human_decision_input, thread)
         print("最终状态：", final.get("current_step", "unknown"))
 
     else:
