@@ -153,7 +153,7 @@ workflow = StateGraph(EmailAgentState)
 
 workflow.add_node("read_email", read_email)
 workflow.add_node("classify_intent", classify_intent)
-workflow.add_node("search_documentation", search_documentation, retry_policy=RetryPolicy(max_attempts=3))
+workflow.add_node("search_documentation", search_documentation, retry_policy=RetryPolicy(max_attempts=3, initial_interval=1.0))
 workflow.add_node("bug_tracking", bug_tracking)
 workflow.add_node("draft_response", draft_response)
 workflow.add_node("human_review", human_review)
