@@ -11,8 +11,9 @@ from langgraph.checkpoint.memory import MemorySaver
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage
 
-# 导入 v2.py 中的类和函数（假设 v2.py 没有 __main__ 部分）
-from v2 import EmailClassification, EmailAgentState, read_email, classify_intent, search_documentation, bug_tracking, draft_response, human_review, send_reply, workflow, memory, app
+# 导入状态和应用
+from states import EmailClassification, EmailAgentState
+from main import app
 
 def test_billing_critical():
     """测试紧急账单邮件分支：classify_intent -> human_review -> interrupt -> resume -> send_reply"""
