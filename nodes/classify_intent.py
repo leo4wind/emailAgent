@@ -1,24 +1,8 @@
-from typing import TypedDict, Literal, Optional, List, Dict
+from typing import Literal, Optional, List, Dict
 from langgraph.types import Command
 from langchain_core.messages import HumanMessage
 from .config import llm
-
-# 定义状态结构
-class EmailClassification(TypedDict):
-    intent: Literal["question", "bug", "billing", "feature", "complex"]
-    urgency: Literal["low", "medium", "high", "critical"]
-    topic: str
-    summary: str
-
-class EmailAgentState(TypedDict):
-    email_content: str
-    sender_email: str
-    email_id: str
-    classification: Optional[EmailClassification]
-    search_results: Optional[List[str]]
-    customer_history: Optional[Dict]
-    draft_response: Optional[str]
-    messages: List[HumanMessage]
+from states import EmailClassification, EmailAgentState
 
 def classify_intent(state: EmailAgentState) -> Command[Literal["search_documentation", "human_review", "draft_response", "bug_tracking"]]:
     """对邮件意图进行分类并路由"""
