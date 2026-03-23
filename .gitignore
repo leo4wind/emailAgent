@@ -3,3 +3,8 @@
 /__pycache__/
 /nodes/__pycache__/
 /test/__pycache__/
+knowledge_base/__pycache__/__init__.cpython-313.pyc
+knowledge_base/__pycache__/pgvector_rag.cpython-313.pyc
+scripts/__pycache__/bootstrap_pgvector_database.cpython-313.pyc
+scripts/__pycache__/import_knowledge_files.cpython-313.pyc
+scripts/__pycache__/init_knowledge_base.cpython-313.pyc

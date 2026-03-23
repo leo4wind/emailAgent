@@ -1,36 +1,40 @@
-from typing import Literal, Optional, List, Dict
+from typing import Literal
 from langgraph.types import Command
-from langchain_core.messages import HumanMessage
-from states import EmailClassification, EmailAgentState
+from knowledge_base.pgvector_rag import KnowledgeBaseError, hybrid_search
+from states import EmailAgentState
 
-
-class SearchAPIError(Exception):
-    """Exception raised when search API fails"""
-    pass
 
 def search_documentation(state: EmailAgentState) -> Command[Literal["draft_response"]]:
     """Search knowledge base for relevant information"""
 
-    # Build search query from classification
-    classification = state.get('classification', {})
-    query = f"{classification.get('intent', '')} {classification.get('topic', '')}"
-
+    classification = state.get("classification", {})
+    query_parts = [
+        classification.get("intent", ""),
+        classification.get("topic", ""),
+        classification.get("summary", ""),
+        state.get("email_content", ""),
+    ]
+    query = " ".join(part.strip() for part in query_parts if part and part.strip())
     try:
-        # Implement your search logic here
-        # Store raw search results, not formatted text
+        documents = hybrid_search(
+            query=query,
+            top_k=5,
+        )
         search_results = [
-            "Reset password via Settings > Security > Change Password",
-            "Password must be at least 12 characters",
-            "Include uppercase, lowercase, numbers, and symbols"
+            (
+                f"[{doc.category}] {doc.title} | chunk={doc.chunk_index} | "
+                f"score={doc.final_score:.3f} | content={doc.content}"
+            )
+            for doc in documents
         ]
-    except SearchAPIError as e:
-        # For recoverable search errors, store error and continue
+        if not search_results:
+            search_results = ["No matching knowledge base content was found."]
+    except KnowledgeBaseError as e:
         search_results = [f"Search temporarily unavailable: {str(e)}"]
     except Exception as e:
-        # For any other unexpected errors during search
         search_results = [f"Search temporarily unavailable: {str(e)}"]
 
     return Command(
-        update={"search_results": search_results},  # Store raw results or error
+        update={"search_results": search_results},
         goto="draft_response"
     )
